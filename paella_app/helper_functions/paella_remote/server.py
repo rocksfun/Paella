@@ -1,22 +1,17 @@
-"""FastAPI application factory for Paella remote access."""
+"""FastAPI application factory for Paella remote access (instrument-side only)."""
 
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from helper_functions.paella_remote.bridge import PaellaRemoteBridge
 from helper_functions.paella_remote.config import RemoteServerConfig
 from helper_functions.paella_remote.constants import PAELLA_REMOTE_VERSION
-
-_DASHBOARD_DIR = Path(__file__).resolve().parents[2] / "dashboard"
 
 
 class CommandRequest(BaseModel):
@@ -29,7 +24,7 @@ def create_app(bridge: PaellaRemoteBridge, config: RemoteServerConfig) -> FastAP
     app = FastAPI(
         title="Paella Remote API",
         version=PAELLA_REMOTE_VERSION,
-        description="REST and WebSocket interface for Travera Paella lab systems",
+        description="REST and WebSocket API for Travera Paella instrument PCs (no UI)",
     )
 
     app.add_middleware(
@@ -39,10 +34,6 @@ def create_app(bridge: PaellaRemoteBridge, config: RemoteServerConfig) -> FastAP
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    def verify_api_key(x_paella_api_key: Optional[str] = Header(default=None)) -> None:
-        if not x_paella_api_key or x_paella_api_key != config.api_key:
-            raise HTTPException(status_code=401, detail="Invalid or missing X-Paella-Api-Key")
 
     @app.get("/api/v1/health")
     async def health() -> Dict[str, Any]:
@@ -55,15 +46,15 @@ def create_app(bridge: PaellaRemoteBridge, config: RemoteServerConfig) -> FastAP
             "hostname": status.get("hostname"),
         }
 
-    @app.get("/api/v1/status", dependencies=[Depends(verify_api_key)])
+    @app.get("/api/v1/status")
     async def status() -> Dict[str, Any]:
         return bridge.get_status()
 
-    @app.get("/api/v1/capabilities", dependencies=[Depends(verify_api_key)])
+    @app.get("/api/v1/capabilities")
     async def capabilities() -> Dict[str, Any]:
         return bridge.execute_command("list_capabilities", {})
 
-    @app.post("/api/v1/commands", dependencies=[Depends(verify_api_key)])
+    @app.post("/api/v1/commands")
     async def commands(body: CommandRequest) -> Dict[str, Any]:
         result = bridge.execute_command(body.command, body.params)
         if body.request_id:
@@ -72,10 +63,6 @@ def create_app(bridge: PaellaRemoteBridge, config: RemoteServerConfig) -> FastAP
 
     @app.websocket("/api/v1/ws/status")
     async def ws_status(websocket: WebSocket) -> None:
-        key = websocket.query_params.get("api_key")
-        if key != config.api_key:
-            await websocket.close(code=1008)
-            return
         await websocket.accept()
         interval = 1.0 / max(config.status_interval_hz, 0.1)
         try:
@@ -89,15 +76,5 @@ def create_app(bridge: PaellaRemoteBridge, config: RemoteServerConfig) -> FastAP
                 await websocket.close()
             except Exception:
                 pass
-
-    if _DASHBOARD_DIR.is_dir():
-        app.mount("/dashboard", StaticFiles(directory=str(_DASHBOARD_DIR), html=True), name="dashboard")
-
-        @app.get("/")
-        async def root_redirect():
-            index = _DASHBOARD_DIR / "index.html"
-            if index.exists():
-                return FileResponse(index)
-            return {"message": "Paella Remote API", "docs": "/docs"}
 
     return app

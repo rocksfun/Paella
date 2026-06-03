@@ -7,17 +7,14 @@ import socket
 import time
 from typing import Any, Dict, List
 
-from helper_functions.paella_remote.constants import ANNOUNCE_MAGIC, DISCOVER_MAGIC
-
-_DEFAULT_PORT = 9876
-_SCAN_SECONDS = 3.0
+from protocol.constants import ANNOUNCE_MAGIC, DEFAULT_DISCOVERY_PORT, DISCOVER_MAGIC
 
 
 def scan_network(
     *,
-    discovery_port: int = _DEFAULT_PORT,
+    discovery_port: int = DEFAULT_DISCOVERY_PORT,
     discovery_secret: str = "",
-    timeout_sec: float = _SCAN_SECONDS,
+    timeout_sec: float = 3.0,
 ) -> List[Dict[str, Any]]:
     """Broadcast PAELLA_DISCOVER and collect PAELLA_ANNOUNCE replies."""
     systems: Dict[str, Dict[str, Any]] = {}

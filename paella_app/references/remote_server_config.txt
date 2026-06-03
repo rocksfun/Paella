@@ -1,0 +1,13 @@
+# Paella Remote Server — instrument PC only (not used by central dashboard)
+# Override on Windows: C:/Paella local/remote_server_config.txt
+
+[remote_server]
+enabled = true
+host = "0.0.0.0"
+port = 8765
+status_interval_hz = 2
+cors_origins = "*"
+
+discovery_enabled = true
+discovery_port = 9876
+discovery_secret = ""

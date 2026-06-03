@@ -47,11 +47,7 @@
   <header>
     <h1>Paella Central Dashboard</h1>
     <div>
-      <label for="apiKey">API key (all systems)</label>
-      <input id="apiKey" type="password" style="width:220px" placeholder="matches remote_server_config" />
-    </div>
-    <div>
-      <label for="discSecret">Discovery secret (optional)</label>
+      <label for="discSecret">Discovery secret (optional, LAN only)</label>
       <input id="discSecret" type="text" style="width:140px" />
     </div>
     <div style="align-self:flex-end">
@@ -89,10 +85,7 @@
     async function apiCommand(s, command, params = {}) {
       const res = await fetch(`${baseUrl(s)}/api/v1/commands`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Paella-Api-Key": document.getElementById("apiKey").value,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command, params }),
       });
       return res.json();
@@ -175,9 +168,6 @@
 
     async function handleAction(s, cmd, card) {
       const key = systemKey(s);
-      const apiKey = document.getElementById("apiKey").value;
-      if (!apiKey) { log("API key required"); return; }
-
       try {
         if (cmd === "complete_clean" || cmd === "rapid_clean" || cmd === "media_purge") {
           const ack = confirm("If a sample condition is running, bleach may destroy the sample. Continue?");
@@ -221,8 +211,7 @@
 
     function connectStatusWs(s) {
       const key = systemKey(s);
-      const apiKey = document.getElementById("apiKey").value;
-      const wsUrl = `ws://${s.api_host}:${s.api_port}/api/v1/ws/status?api_key=${encodeURIComponent(apiKey)}`;
+      const wsUrl = `ws://${s.api_host}:${s.api_port}/api/v1/ws/status`;
       const ws = new WebSocket(wsUrl);
       const state = connections.get(key);
       state.ws = ws;
@@ -239,9 +228,6 @@
     }
 
     async function scan() {
-      const apiKey = document.getElementById("apiKey").value;
-      if (!apiKey) { log("Set API key first (must match each system's remote_server_config)"); return; }
-      localStorage.setItem("paella_api_key", apiKey);
       localStorage.setItem("paella_disc_secret", document.getElementById("discSecret").value);
 
       log("Scanning network…");
@@ -280,7 +266,6 @@
 
     document.getElementById("scanBtn").addEventListener("click", scan);
     document.getElementById("disconnectBtn").addEventListener("click", disconnectAll);
-    document.getElementById("apiKey").value = localStorage.getItem("paella_api_key") || "";
     document.getElementById("discSecret").value = localStorage.getItem("paella_disc_secret") || "";
   </script>
 </body>

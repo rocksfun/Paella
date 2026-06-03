@@ -32,9 +32,7 @@ class RemoteServerConfig:
     enabled: bool = True
     host: str = "0.0.0.0"
     port: int = 8765
-    api_key: str = "change-me-before-lab-use"
     status_interval_hz: float = 2.0
-    frequency_max_hz: float = 10.0
     cors_origins: List[str] = field(default_factory=lambda: ["*"])
     discovery_enabled: bool = True
     discovery_port: int = 9876
@@ -67,9 +65,7 @@ def load_remote_server_config() -> RemoteServerConfig:
         enabled=bool(enabled),
         host=str(section.get("host", "0.0.0.0")),
         port=int(section.get("port", 8765)),
-        api_key=str(section.get("api_key", "change-me-before-lab-use")),
         status_interval_hz=float(section.get("status_interval_hz", 2)),
-        frequency_max_hz=float(section.get("frequency_max_hz", 10)),
         cors_origins=origins or ["*"],
         discovery_enabled=bool(disc_enabled),
         discovery_port=int(section.get("discovery_port", 9876)),

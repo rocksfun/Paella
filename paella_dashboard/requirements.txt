@@ -1,0 +1,3 @@
+# Paella Central Dashboard — install on operator PCs only (not on instrument PCs)
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0

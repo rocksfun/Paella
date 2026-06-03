@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Run the Paella central dashboard (local web app + UDP discovery)."""
+"""Run the Paella central dashboard (local web app + UDP discovery).
 
-import sys
+Install: pip install -r requirements.txt
+Run from this directory: python run_dashboard.py
+PyInstaller entry point for dashboard-only .exe builds.
+"""
+
 import os
+import sys
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 if _ROOT not in sys.path:
@@ -10,7 +15,7 @@ if _ROOT not in sys.path:
 
 if __name__ == "__main__":
     import uvicorn
-    from dashboard_server.app import create_dashboard_app
+    from server.app import create_dashboard_app
 
     port = int(os.environ.get("PAELLA_DASHBOARD_PORT", "9080"))
     print(f"Paella Central Dashboard: http://127.0.0.1:{port}/")

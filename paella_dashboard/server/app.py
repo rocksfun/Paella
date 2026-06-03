@@ -9,11 +9,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from dashboard_server.discovery_client import scan_network
+from server.discovery_client import scan_network
 
-_DASHBOARD_DIR = Path(__file__).resolve().parents[1] / "dashboard"
+_DASHBOARD_ROOT = Path(__file__).resolve().parents[1]
+_STATIC_DIR = _DASHBOARD_ROOT / "static"
 _DISCOVERED: List[Dict[str, Any]] = []
 
 
@@ -24,7 +25,7 @@ class ScanRequest(BaseModel):
 
 
 def create_dashboard_app() -> FastAPI:
-    app = FastAPI(title="Paella Central Dashboard", version="1.1.0")
+    app = FastAPI(title="Paella Central Dashboard", version="1.2.0")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -47,11 +48,11 @@ def create_dashboard_app() -> FastAPI:
     async def systems() -> Dict[str, Any]:
         return {"ok": True, "systems": _DISCOVERED}
 
-    if _DASHBOARD_DIR.is_dir():
-        app.mount("/static", StaticFiles(directory=str(_DASHBOARD_DIR)), name="static")
+    if _STATIC_DIR.is_dir():
+        app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
         @app.get("/")
         async def index():
-            return FileResponse(_DASHBOARD_DIR / "index.html")
+            return FileResponse(_STATIC_DIR / "index.html")
 
     return app

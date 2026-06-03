@@ -1,0 +1,15 @@
+from protocol.constants import (
+    ANNOUNCE_MAGIC,
+    DEFAULT_API_PORT,
+    DEFAULT_DISCOVERY_PORT,
+    DISCOVER_MAGIC,
+    SCHEMA_VERSION,
+)
+
+__all__ = [
+    "ANNOUNCE_MAGIC",
+    "DEFAULT_API_PORT",
+    "DEFAULT_DISCOVERY_PORT",
+    "DISCOVER_MAGIC",
+    "SCHEMA_VERSION",
+]

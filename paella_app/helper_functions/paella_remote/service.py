@@ -106,8 +106,8 @@ class PaellaRemoteService:
         self._thread = threading.Thread(target=run_server, name="PaellaRemoteServer", daemon=True)
         self._thread.start()
         print(
-            f"Paella remote server listening on http://0.0.0.0:{self._config.port} "
-            f"(discovery UDP {self._config.discovery_port}, dashboard: /dashboard/)"
+            f"Paella remote API listening on http://0.0.0.0:{self._config.port} "
+            f"(UDP discovery port {self._config.discovery_port})"
         )
 
     def stop(self) -> None:

@@ -1,0 +1,108 @@
+# SMR Parameters Configuration File
+# TOML-style format
+# This file contains default and preset parameter configurations for FPGA register values
+
+[default]
+# Main section parameters
+smr_driver_id = 0
+run = false
+enable_agc = true
+send_data_to_pc = true
+run_nco_at_fixed_freq = false
+input_source = "channel_a"
+dac_a_output = "PLL NCO"
+dac_b_output = "off"
+signal_of_interest = "PLL Frequency"
+
+# Frequency parameters
+frequency = 1000000.0
+minimum_frequency = 999000.0
+maximum_frequency = 1001000.0
+
+# CIC parameters
+cic_rate = 1250
+cic_bit_shift = 16
+
+# Feedback parameters
+feedback_delay = 0
+feedback_gain = 0
+
+# PLL parameters
+pll_datarate_decimation = "4"
+resonator_q = 0.0
+loop_order = 2
+loop_bandwidth = 2000
+pll_delay = 0.0
+pll_drive_amplitude = 0.1
+impulse = false
+
+[sweep]
+# Baseline settings when performing an initialization sweep
+smr_driver_id = 0
+run = true
+enable_agc = true
+send_data_to_pc = true
+run_nco_at_fixed_freq = false
+input_source = "channel_a"
+dac_a_output = "PLL NCO"
+dac_b_output = "off"
+signal_of_interest = "mixdown"
+
+# CIC parameters
+cic_rate = 32767
+cic_bit_shift = 24
+
+# Feedback parameters
+feedback_delay = 0
+feedback_gain = 0
+
+# PLL parameters
+pll_datarate_decimation = "0"
+resonator_q = 0
+loop_order = 1
+loop_bandwidth = 100
+pll_delay = 0
+impulse = false
+
+# Sweep specific parameters
+coarse_bw = 1000
+fine_bw_min = 5.0
+fine_bw_max = 50.0
+minimum_frequency = 750000
+maximum_frequency = 1100000
+substrate_bias = 3
+
+[default_PLL]
+# Main section parameters
+smr_driver_id = 0
+run = false
+enable_agc = true
+send_data_to_pc = true
+run_nco_at_fixed_freq = false
+input_source = "channel_a"
+dac_a_output = "PLL NCO"
+dac_b_output = "off"
+signal_of_interest = "PLL Frequency"
+
+# CIC parameters
+cic_rate = 1250
+
+# Feedback parameters
+feedback_delay = 0
+feedback_gain = 0
+
+# PLL parameters
+pll_datarate_decimation = "4"
+loop_order = 2
+loop_bandwidth = 2000
+pll_delay = 0.0
+pll_drive_amplitude = 0.1
+impulse = false
+
+[set_delays]
+run = true
+signal_of_interest = "magnitude"
+cic_bit_shift = 20
+cic_rate = 2500
+pll_datarate_decimation = "2"
+

@@ -1,0 +1,50 @@
+# System Configuration File
+# TOML-style format
+
+[system]
+system_name = "LC"
+operators = ["mvacha", "rlabella", "raikins", "kkatsis", "mssozi", "ncalistri", "rkimmerling"]
+sample_selection_perms = ["mvacha", "rlabella", "raikins", "kkatsis", "mssozi", "ncalistri", "rkimmerling"]
+sample_creation_perms = ["ncalistri"]
+
+[camera_settings]
+camera_mode = "BF"
+bf_roi_framerate = 1600
+bffl_roi_framerate = 1250
+
+[brightfield]
+camera_name = "a2A1920-160umBAS (SN: 40593881)"
+camera_serial = "40593881"
+flip_x = true
+
+[fluorescent]
+camera_name = "a2A1920-160umBAS (SN: 40557897)"
+camera_serial = "40557897"
+flip_x = true
+
+[daq]
+daq_name = "Dev1"
+fpga_relay = "port0/line2"
+substrate_bias = "ao0"
+camera_trigger = "ao1"
+photodiode = "ai2"
+
+[syringe_pumps]
+com_port = "COM11"
+sample.bf_draw_rate = "2"
+sample.bffl_draw_rate = "1"
+bead.draw_rate = "2"
+
+[references]
+active_devices_path = "W:\Reference Docs\active_devices.txt"
+devices_path = "W:\Devices\"
+smr_settings_path = "C:\Paella local\smr_settings\"
+local_data_path = "D:\"
+nas_sample_path = "W:\Samples"
+
+[led_control]
+red_led_address = "port0/line1"
+blue_led_address = "port0/line0"
+red_led_on_state = true
+blue_led_on_state = false
+blue_current_monitor_daq_address = "ai3"

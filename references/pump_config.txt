@@ -1,0 +1,55 @@
+# Pump Configuration File
+# TOML-style format
+
+[syringe1]
+  port1.nickname = "Water"
+  port1.type = "Reagent"
+  port2.nickname = "P3"
+  port2.type = "Device"
+  port3.nickname = "Empty1"
+  port3.type = "Empty"
+  port4.nickname = "Empty2"
+  port4.type = "Empty"
+  port5.nickname = "Bleach"
+  port5.type = "Reagent"
+  port6.nickname = "Waste"
+  port6.type = "Waste"
+
+[syringe2]
+  port1.nickname = "Water"
+  port1.type = "Reagent"
+  port2.nickname = "P1"
+  port2.type = "Device"
+  port3.nickname = "P2"
+  port3.type = "Device"
+  port4.nickname = "Media"
+  port4.type = "Reagent"
+  port5.nickname = "Bleach"
+  port5.type = "Reagent"
+  port6.nickname = "Waste"
+  port6.type = "Waste"
+
+[kickback]
+timed_kickbacks_enabled = true
+kickback_time_seconds = 150.0
+kickback_volume_ul = 0.5
+kickback_rate_ul_min = 100.0
+
+[clean]
+manual_clean_routine = "Full Clean"
+auto_clean_enabled = true
+auto_clean_routine = "Rapid Clean"
+auto_clean.minimum_peaks = "8000"
+auto_clean.minimum_volume = "8.0"
+
+[settings]
+# Draw and dispense rates (µL/min) for each port type
+# Applied to both syringes
+  device.draw_rate = "100.0"
+  device.dispense_rate = "100.0"
+  reagent.draw_rate = "2000.0"
+  reagent.dispense_rate = ""
+  waste.draw_rate = ""
+  waste.dispense_rate = "2000.0"
+  empty.draw_rate = "0.0"
+  empty.dispense_rate = "0.0"

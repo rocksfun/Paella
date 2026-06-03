@@ -1,0 +1,13 @@
+step,syringe,action,port,uL,uL/min
+1,0,Interrupt,,,-
+1,1,Interrupt,,,-
+2,0,Empty Syringe,,,-
+2,1,Empty Syringe,,,-
+3,0,Prime Reagent,5,,-
+3,1,Prime Reagent,5,,-
+4,0,Prime Reagent,1,,-
+4,1,Prime Reagent,1,,-
+5,0,Prime Reagent,1,,-
+5,1,Prime Reagent,1,,-
+6,1,Prime Reagent,4,,-
+7,1,Prime Reagent,4,,-

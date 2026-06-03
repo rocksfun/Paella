@@ -1,0 +1,8 @@
+step,syringe,action,port,uL,uL/min
+1,0,Interrupt,,,-
+1,1,Interrupt,,,-
+2,0,Empty Syringe,,-,-
+2,1,Empty Syringe,,,-
+3,1,Draw,4,5.0,2000.0
+4,0,Draw,2,1.0,4.0
+4,1,Draw,2,7.5,30.0

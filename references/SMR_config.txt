@@ -1,0 +1,9 @@
+# SMR Configuration File
+# TOML-style format
+
+[connection]
+nios_ip = "192.168.100.2"
+multicast_ip = "224.1.1.1"
+host_ip = "192.168.100.1"
+udp_port = 5007
+remote_port = 30

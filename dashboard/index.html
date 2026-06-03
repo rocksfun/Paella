@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paella Central Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1419; --card: #1a2332; --border: #2d3a4f;
+      --text: #e7ecf3; --muted: #8b9cb3; --accent: #3d8bfd;
+      --ok: #3dd68c; --warn: #f5a524; --err: #f2555a;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    header {
+      padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+      display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;
+    }
+    h1 { margin: 0; font-size: 1.2rem; }
+    label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 0.2rem; }
+    input, select, button {
+      font: inherit; padding: 0.45rem 0.65rem; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+    }
+    button { cursor: pointer; background: var(--accent); border-color: var(--accent); color: #fff; }
+    button.secondary { background: var(--card); border-color: var(--border); color: var(--text); }
+    button.danger { background: #b32d3a; border-color: #b32d3a; }
+    main { padding: 1rem 1.5rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; }
+    .card h2 { margin: 0 0 0.35rem; font-size: 1rem; }
+    .badge { font-size: 0.68rem; padding: 0.12rem 0.45rem; border-radius: 999px; margin-left: 0.4rem; }
+    .badge.on { background: rgba(61,214,140,0.2); color: var(--ok); }
+    .badge.off { background: rgba(242,85,90,0.2); color: var(--err); }
+    .meta { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem; line-height: 1.4; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.35rem 0; align-items: center; }
+    .section { margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px solid var(--border); }
+    .section-title { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+    #log {
+      margin-top: 1rem; padding: 0.65rem; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; font-size: 0.72rem; color: var(--muted); max-height: 140px; overflow-y: auto;
+    }
+    .health-err { color: var(--err); font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Paella Central Dashboard</h1>
+    <div>
+      <label for="apiKey">API key (all systems)</label>
+      <input id="apiKey" type="password" style="width:220px" placeholder="matches remote_server_config" />
+    </div>
+    <div>
+      <label for="discSecret">Discovery secret (optional)</label>
+      <input id="discSecret" type="text" style="width:140px" />
+    </div>
+    <div style="align-self:flex-end">
+      <button id="scanBtn">Scan network</button>
+      <button class="secondary" id="disconnectBtn">Disconnect all</button>
+    </div>
+  </header>
+  <main>
+    <div class="grid" id="grid"></div>
+    <div id="log"></div>
+  </main>
+  <script>
+    const connections = new Map();
+    const kickbackVolumes = JSON.parse(localStorage.getItem("paella_kickback_volumes") || "{}");
+
+    function log(msg) {
+      const el = document.getElementById("log");
+      const line = document.createElement("div");
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      el.prepend(line);
+    }
+
+    function saveKickbackVolumes() {
+      localStorage.setItem("paella_kickback_volumes", JSON.stringify(kickbackVolumes));
+    }
+
+    function systemKey(s) {
+      return `${s.system_id}@${s.api_host}:${s.api_port}`;
+    }
+
+    function baseUrl(s) {
+      return `http://${s.api_host}:${s.api_port}`;
+    }
+
+    async function apiCommand(s, command, params = {}) {
+      const res = await fetch(`${baseUrl(s)}/api/v1/commands`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Paella-Api-Key": document.getElementById("apiKey").value,
+        },
+        body: JSON.stringify({ command, params }),
+      });
+      return res.json();
+    }
+
+    function renderCard(s, status, online) {
+      const key = systemKey(s);
+      let card = document.getElementById("card-" + key.replace(/[^a-zA-Z0-9]/g, "_"));
+      if (!card) return;
+
+      const exp = status?.experiment || {};
+      const health = status?.health || {};
+      const elapsed = exp.saving_elapsed_sec != null ? `${exp.saving_elapsed_sec}s` : "—";
+      const err = health.last_error || "";
+      const drops = health.udp_queue_drops ?? 0;
+
+      card.querySelector(".status-body").innerHTML = `
+        <div class="meta">
+          ${s.api_host}:${s.api_port} · ${status?.hostname || s.hostname || "—"}<br/>
+          Operator: <b>${status?.operator || "—"}</b> · Uptime: ${status?.uptime_sec ?? "—"}s · v${status?.paella_version || "?"}
+        </div>
+        <div>Fluidic: <b>${status?.fluidic_state || "—"}</b> · Pumps: ${status?.pumps_connected ? "connected" : "disconnected"} ${status?.pump_com_port ? `(${status.pump_com_port})` : ""}</div>
+        <div>Experiment: ${exp.active ? "active" : "idle"} · Saving: ${exp.is_saving ? `yes (${elapsed})` : "no"}</div>
+        <div style="font-size:0.75rem;margin-top:0.25rem">Path: ${exp.sample_path || "—"}</div>
+        <div style="font-size:0.75rem">Exp ID: ${exp.experiment_string || "—"}</div>
+        ${err ? `<div class="health-err">Last error: ${err}</div>` : ""}
+        ${drops ? `<div class="health-err">UDP queue drops: ${drops}</div>` : ""}
+      `;
+      const badge = card.querySelector(".badge");
+      badge.textContent = online ? "online" : "offline";
+      badge.className = "badge " + (online ? "on" : "off");
+    }
+
+    function buildCard(s) {
+      const key = systemKey(s);
+      const id = "card-" + key.replace(/[^a-zA-Z0-9]/g, "_");
+      const vol = kickbackVolumes[key] ?? 5;
+      const card = document.createElement("article");
+      card.className = "card";
+      card.id = id;
+      card.innerHTML = `
+        <h2>${s.system_id || "System"} <span class="badge off">offline</span></h2>
+        <div class="status-body"></div>
+        <div class="section">
+          <div class="section-title">Cleans</div>
+          <div class="row">
+            <button data-cmd="complete_clean">Complete</button>
+            <button data-cmd="rapid_clean">Rapid</button>
+            <button data-cmd="media_purge">Media purge</button>
+            <button class="danger" data-cmd="final_clean">Final clean</button>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Kickback</div>
+          <div class="row">
+            <label>µL</label>
+            <input type="number" min="0.1" step="0.1" class="kb-vol" value="${vol}" style="width:70px" />
+            <button data-cmd="kickback">Run kickback</button>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Syringe pumps</div>
+          <div class="row">
+            <button data-cmd="connect">Connect</button>
+            <button data-cmd="disconnect">Disconnect</button>
+            <button data-cmd="initialize">Initialize</button>
+          </div>
+        </div>
+      `;
+
+      card.querySelectorAll("button[data-cmd]").forEach((btn) => {
+        btn.addEventListener("click", () => handleAction(s, btn.dataset.cmd, card));
+      });
+      card.querySelector(".kb-vol").addEventListener("change", (e) => {
+        kickbackVolumes[key] = parseFloat(e.target.value) || 5;
+        saveKickbackVolumes();
+      });
+      return card;
+    }
+
+    async function handleAction(s, cmd, card) {
+      const key = systemKey(s);
+      const apiKey = document.getElementById("apiKey").value;
+      if (!apiKey) { log("API key required"); return; }
+
+      try {
+        if (cmd === "complete_clean" || cmd === "rapid_clean" || cmd === "media_purge") {
+          const ack = confirm("If a sample condition is running, bleach may destroy the sample. Continue?");
+          const r = await apiCommand(s, "run_clean", { protocol: cmd, ack_sample_destroyed: ack });
+          log(`${key} clean ${cmd}: ${r.ok ? "ok" : r.error}`);
+          return;
+        }
+        if (cmd === "final_clean") {
+          if (!confirm("FINAL CLEAN stops saving and destroys remaining sample. Continue?")) return;
+          const r = await apiCommand(s, "run_final_clean", { confirmed: true });
+          log(`${key} final clean: ${r.ok ? "ok" : r.error}`);
+          return;
+        }
+        if (cmd === "kickback") {
+          const vol = parseFloat(card.querySelector(".kb-vol").value) || 5;
+          kickbackVolumes[key] = vol;
+          saveKickbackVolumes();
+          await apiCommand(s, "set_kickback_volume", { volume_ul: vol });
+          const r = await apiCommand(s, "run_kickback", { volume_ul: vol });
+          log(`${key} kickback: ${r.ok ? "ok" : r.error}`);
+          return;
+        }
+        if (cmd === "connect") {
+          const r = await apiCommand(s, "pumps_connect", {});
+          log(`${key} connect: ${r.ok ? r.message || "ok" : r.error}`);
+          return;
+        }
+        if (cmd === "disconnect") {
+          const r = await apiCommand(s, "pumps_disconnect", {});
+          log(`${key} disconnect: ${r.ok ? "ok" : r.error}`);
+          return;
+        }
+        if (cmd === "initialize") {
+          const r = await apiCommand(s, "pumps_initialize", {});
+          log(`${key} initialize: ${r.ok ? "ok" : r.error}`);
+        }
+      } catch (e) {
+        log(`${key} error: ${e.message}`);
+      }
+    }
+
+    function connectStatusWs(s) {
+      const key = systemKey(s);
+      const apiKey = document.getElementById("apiKey").value;
+      const wsUrl = `ws://${s.api_host}:${s.api_port}/api/v1/ws/status?api_key=${encodeURIComponent(apiKey)}`;
+      const ws = new WebSocket(wsUrl);
+      const state = connections.get(key);
+      state.ws = ws;
+      ws.onmessage = (ev) => {
+        try {
+          const status = JSON.parse(ev.data);
+          state.online = true;
+          state.status = status;
+          renderCard(s, status, true);
+        } catch (_) {}
+      };
+      ws.onclose = () => { state.online = false; renderCard(s, state.status, false); };
+      ws.onerror = () => { state.online = false; renderCard(s, state.status, false); };
+    }
+
+    async function scan() {
+      const apiKey = document.getElementById("apiKey").value;
+      if (!apiKey) { log("Set API key first (must match each system's remote_server_config)"); return; }
+      localStorage.setItem("paella_api_key", apiKey);
+      localStorage.setItem("paella_disc_secret", document.getElementById("discSecret").value);
+
+      log("Scanning network…");
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          discovery_port: 9876,
+          discovery_secret: document.getElementById("discSecret").value,
+          timeout_sec: 3,
+        }),
+      });
+      const data = await res.json();
+      log(`Found ${data.count} system(s)`);
+
+      for (const c of connections.values()) c.ws?.close();
+      connections.clear();
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+
+      for (const s of data.systems) {
+        const key = systemKey(s);
+        connections.set(key, { system: s, online: false, status: {}, ws: null });
+        const card = buildCard(s);
+        grid.appendChild(card);
+        connectStatusWs(s);
+      }
+    }
+
+    function disconnectAll() {
+      for (const st of connections.values()) st.ws?.close();
+      connections.clear();
+      document.getElementById("grid").innerHTML = "";
+      log("Disconnected");
+    }
+
+    document.getElementById("scanBtn").addEventListener("click", scan);
+    document.getElementById("disconnectBtn").addEventListener("click", disconnectAll);
+    document.getElementById("apiKey").value = localStorage.getItem("paella_api_key") || "";
+    document.getElementById("discSecret").value = localStorage.getItem("paella_disc_secret") || "";
+  </script>
+</body>
+</html>

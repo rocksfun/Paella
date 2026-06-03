@@ -33,6 +33,7 @@ from helper_functions.UIUX_elements import (
     create_button, create_status_label, create_status_badge,
     Colors
 )
+from helper_functions.paella_remote import PaellaRemoteService
 
 # References directory relative to script location
 if hasattr(sys, '_MEIPASS'):
@@ -693,6 +694,10 @@ class MainApplicationWindow(QMainWindow):
         # Apply global styles
         self._setup_styles()
 
+        # Remote API server (REST + WebSocket for central dashboard)
+        self.remote_service = PaellaRemoteService(self)
+        self.remote_service.start()
+
         # Add a periodic flush timer for the console log redirector
         # Flushes every 2 seconds to avoid blocking GUI on every print
         self.log_flush_timer = QTimer(self)
@@ -736,6 +741,9 @@ class MainApplicationWindow(QMainWindow):
     
     def closeEvent(self, event):
         """Clean up all child widgets when main window is closed."""
+        if hasattr(self, "remote_service") and self.remote_service:
+            self.remote_service.stop()
+
         # Stop console logging if active
         global console_redirector
         if console_redirector:

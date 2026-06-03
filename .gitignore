@@ -4,3 +4,9 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# Local-only modification changelog — never commit
+LOCAL_MODIFICATIONS_LOG.txt
+
+# Local Python venv
+.venv/

@@ -1,0 +1,17 @@
+# Paella Remote Server — per-machine settings (TOML-style)
+# Copy overrides to C:/Paella local/remote_server_config.txt on lab PCs if needed.
+
+[remote_server]
+enabled = true
+host = "0.0.0.0"
+port = 8765
+api_key = "change-me-before-lab-use"
+status_interval_hz = 2
+frequency_max_hz = 10
+# Comma-separated origins for browser dashboard (use * only on trusted LAN)
+cors_origins = "*"
+
+# UDP discovery (dashboard broadcast → Paella unicast reply)
+discovery_enabled = true
+discovery_port = 9876
+discovery_secret = ""

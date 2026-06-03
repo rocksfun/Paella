@@ -4030,77 +4030,104 @@ class SyringeControlWidget(QWidget):
     
     def _on_clean_between_runs(self):
         """Handler for Clean now button. Loads and executes the routine matching the selected clean protocol."""
-        if not self._check_fluidic_debounce(): return # Added debounce check
-        if not (self.comm_thread and self.comm_thread.isRunning()):
-            self.show_error("Not connected. Cannot run clean routine.")
+        if not self._check_fluidic_debounce():
             return
-        # Get the selected clean protocol name first
         clean_protocol = self.clean_protocol_combo.currentText()
         if not clean_protocol:
             self.show_error("Please select a clean protocol.")
             return
+        self._execute_clean_protocol(clean_protocol, ack_sample_destroyed=False, use_gui_warning=True)
 
-        # Stop kickback timer when clean starts
+    def _execute_clean_protocol(
+        self,
+        clean_protocol: str,
+        *,
+        ack_sample_destroyed: bool = False,
+        use_gui_warning: bool = True,
+    ) -> dict:
+        """Run a clean routine (Complete / Rapid / Media Purge). Returns result dict for remote API."""
+        if not self._check_fluidic_debounce():
+            return {"ok": False, "error": "debounce"}
+        if not (self.comm_thread and self.comm_thread.isRunning()):
+            msg = "Not connected. Cannot run clean routine."
+            if use_gui_warning:
+                self.show_error(msg)
+            return {"ok": False, "error": "not_connected", "message": msg}
+        if not clean_protocol:
+            return {"ok": False, "error": "missing_protocol"}
+
         self.kickback_timer.stop()
         self.kickback_timed_enabled = False
         if hasattr(self, 'kickback_timed_checkbox'):
             self.kickback_timed_checkbox.setChecked(False)
-        # self.last_kickback_time = None # Keep time valid until state changes
-        
-        # Update fluidic state to CLEANING
+
         self.current_fluidic_state = self.FLUIDIC_STATE_CLEANING
         self.fluidic_state_changed.emit(self.FLUIDIC_STATE_CLEANING, f"Clean - {clean_protocol}")
-        
-        # Disable peak detection
+
         if hasattr(self.smr_widget, 'disable_peak_detection'):
             self.smr_widget.disable_peak_detection()
-        
-        # Check if a condition (beads/condition) is currently running
-        # Exclude clean routines from this check
-        condition_running = (self.is_aspirating or 
-                           ((self.routine_thread and self.routine_thread.isRunning()) and not self.is_clean_routine))
-        
+
+        condition_running = (
+            self.is_aspirating
+            or ((self.routine_thread and self.routine_thread.isRunning()) and not self.is_clean_routine)
+        )
+
         if condition_running:
-            # Show warning popup
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle("Warning: Condition Running")
-            msg_box.setText("Executing clean will backflush bleach into the sample vial - replace it now if you want to preserve the sample")
-            msg_box.setIcon(QMessageBox.Icon.Warning)
-            
-            cancel_button = msg_box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
-            ok_button = msg_box.addButton("OK", QMessageBox.ButtonRole.AcceptRole)
-            msg_box.setDefaultButton(cancel_button)
-            
-            reply = msg_box.exec()
-            
-            if msg_box.clickedButton() == cancel_button:
-                return
-        
-        # Find routine file (prefers locked version over unlocked)
+            if not ack_sample_destroyed:
+                if use_gui_warning:
+                    msg_box = QMessageBox(self)
+                    msg_box.setWindowTitle("Warning: Condition Running")
+                    msg_box.setText(
+                        "Executing clean will backflush bleach into the sample vial - "
+                        "replace it now if you want to preserve the sample"
+                    )
+                    msg_box.setIcon(QMessageBox.Icon.Warning)
+                    cancel_button = msg_box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+                    ok_button = msg_box.addButton("OK", QMessageBox.ButtonRole.AcceptRole)
+                    msg_box.setDefaultButton(cancel_button)
+                    msg_box.exec()
+                    if msg_box.clickedButton() != ok_button:
+                        return {"ok": False, "error": "cancelled", "message": "condition_running"}
+                else:
+                    return {
+                        "ok": False,
+                        "error": "condition_running_requires_ack",
+                        "message": "Set ack_sample_destroyed=true to proceed.",
+                    }
+
         routine_path = self.find_routine_file(clean_protocol)
-        
-        if routine_path:
-            routine_filename = os.path.basename(routine_path)
-            self.log_text.append(f"Loading clean routine: {routine_filename}")
-            if self.load_routine_from_file(routine_path):
-                # Mark as clean routine
-                self.is_clean_routine = True
-                
-                # Update condition indicator to "None - Cleaning"
-                if self.smr_widget and hasattr(self.smr_widget, '_update_current_condition'):
-                    self.smr_widget._update_current_condition("None - Cleaning")
-                
-                # Log to experiment_flags.txt if saving
-                if self.smr_widget and self.smr_widget.is_saving:
-                    flag_text = f"Clean: {clean_protocol}"
-                    self.smr_widget._append_experiment_flag(flag_text)
-                
-                self.update_status_message(f"Running {clean_protocol} routine...", 3000)
-                self._run_routine()
-            else:
-                self.show_error(f"Failed to load routine '{routine_filename}'.")
-        else:
-            self.show_error(f"Routine '{clean_protocol}' not found in {ROUTINE_SUBDIR}.\nPlease create and save this routine first.")
+        if not routine_path:
+            msg = f"Routine '{clean_protocol}' not found."
+            if use_gui_warning:
+                self.show_error(msg)
+            return {"ok": False, "error": "routine_not_found", "message": msg}
+
+        routine_filename = os.path.basename(routine_path)
+        self.log_text.append(f"Loading clean routine: {routine_filename}")
+        if not self.load_routine_from_file(routine_path):
+            msg = f"Failed to load routine '{routine_filename}'."
+            if use_gui_warning:
+                self.show_error(msg)
+            return {"ok": False, "error": "load_failed", "message": msg}
+
+        self.is_clean_routine = True
+        if self.smr_widget and hasattr(self.smr_widget, '_update_current_condition'):
+            self.smr_widget._update_current_condition("None - Cleaning")
+        if self.smr_widget and self.smr_widget.is_saving:
+            self.smr_widget._append_experiment_flag(f"Clean: {clean_protocol}")
+        self.update_status_message(f"Running {clean_protocol} routine...", 3000)
+        self._run_routine()
+        return {"ok": True, "message": f"started {clean_protocol}", "protocol": clean_protocol}
+
+    def run_clean_programmatic(self, protocol_key: str, ack_sample_destroyed: bool = False) -> dict:
+        """Remote API: protocol_key is complete_clean | rapid_clean | media_purge."""
+        from helper_functions.paella_remote.constants import CLEAN_PROTOCOL_MAP
+        clean_protocol = CLEAN_PROTOCOL_MAP.get(protocol_key)
+        if not clean_protocol:
+            return {"ok": False, "error": "invalid_protocol", "protocol": protocol_key}
+        return self._execute_clean_protocol(
+            clean_protocol, ack_sample_destroyed=ack_sample_destroyed, use_gui_warning=False
+        )
     
     def _on_final_clean(self):
         """Handler for Final clean button."""
@@ -4118,88 +4145,182 @@ class SyringeControlWidget(QWidget):
         msg_box.exec()
 
         if msg_box.clickedButton() == continue_btn:
-            # Show progress dialog
-            self.final_clean_dialog = FinalCleanProgressDialog(self)
-            self.final_clean_dialog.show()
-            
-            # Connect frequency analysis progress
-            if self.smr_widget:
-                try:
-                    self.smr_widget.posthoc_progress.connect(self.final_clean_dialog.update_analysis_status)
-                except Exception as e:
-                    print(f"Error connecting post-hoc progress: {e}")
-            
-            # Force UI update so the dialog isn't a gray box during hardware teardown
-            QApplication.processEvents()
-            
-            # Define how to start the analysis once saving is actually stopped
-            def start_analysis_logic():
-                if self.smr_widget and hasattr(self.smr_widget, '_last_uncalibrated_csv') and self.smr_widget._last_uncalibrated_csv:
-                    self.smr_widget._run_posthoc_analysis(self.smr_widget._last_uncalibrated_csv, use_drift_correction=False)
-                else:
-                    # If no data was saved, immediately report 100%
-                    self.final_clean_dialog.update_analysis_status(100, "No frequency data to analyze.")
-                    
-            # Stop saving in pySMR if applicable
-            if self.smr_widget:
-                self.smr_widget.is_final_clean = True
-                
-                if self.smr_widget.is_saving:
-                    # Connect to the signal - using a one-off connection
-                    # We use a lambda or named function and disconnect it immediately
-                    # to avoid multiple triggers if the user clicks again.
-                    def on_finished():
-                        try:
-                            self.smr_widget.data_saver_finished.disconnect(on_finished)
-                        except: pass
-                        start_analysis_logic()
-                        
-                    self.smr_widget.data_saver_finished.connect(on_finished)
-                    self._stop_smr_saving()
-                else:
-                    # Not saving, start analysis immediately
-                    start_analysis_logic()
+            self._start_final_clean_sequence(use_progress_dialog=True)
+
+    def run_final_clean_programmatic(self, skip_confirmation: bool = True) -> dict:
+        """Remote API: start Final Clean (destructive). Caller must confirm on dashboard."""
+        if not self._check_fluidic_debounce():
+            return {"ok": False, "error": "debounce"}
+        if not (self.comm_thread and self.comm_thread.isRunning()):
+            return {"ok": False, "error": "not_connected"}
+        if not skip_confirmation:
+            return {"ok": False, "error": "confirmation_required"}
+        self._start_final_clean_sequence(use_progress_dialog=True)
+        return {"ok": True, "message": "final_clean_started"}
+
+    def _start_final_clean_sequence(self, use_progress_dialog: bool = True):
+        # Show progress dialog
+        self.final_clean_dialog = FinalCleanProgressDialog(self)
+        self.final_clean_dialog.show()
+        
+        # Connect frequency analysis progress
+        if self.smr_widget:
+            try:
+                self.smr_widget.posthoc_progress.connect(self.final_clean_dialog.update_analysis_status)
+            except Exception as e:
+                print(f"Error connecting post-hoc progress: {e}")
+        
+        # Force UI update so the dialog isn't a gray box during hardware teardown
+        QApplication.processEvents()
+        
+        # Define how to start the analysis once saving is actually stopped
+        def start_analysis_logic():
+            if self.smr_widget and hasattr(self.smr_widget, '_last_uncalibrated_csv') and self.smr_widget._last_uncalibrated_csv:
+                self.smr_widget._run_posthoc_analysis(self.smr_widget._last_uncalibrated_csv, use_drift_correction=False)
             else:
+                # If no data was saved, immediately report 100%
+                self.final_clean_dialog.update_analysis_status(100, "No frequency data to analyze.")
+                
+        # Stop saving in pySMR if applicable
+        if self.smr_widget:
+            self.smr_widget.is_final_clean = True
+            
+            if self.smr_widget.is_saving:
+                # Connect to the signal - using a one-off connection
+                # We use a lambda or named function and disconnect it immediately
+                # to avoid multiple triggers if the user clicks again.
+                def on_finished():
+                    try:
+                        self.smr_widget.data_saver_finished.disconnect(on_finished)
+                    except: pass
+                    start_analysis_logic()
+                    
+                self.smr_widget.data_saver_finished.connect(on_finished)
                 self._stop_smr_saving()
+            else:
+                # Not saving, start analysis immediately
                 start_analysis_logic()
+        else:
+            self._stop_smr_saving()
+            start_analysis_logic()
+        
+        # Stop kickback timer when final clean starts
+        self.kickback_timer.stop()
+        self.kickback_timed_enabled = False
+        if hasattr(self, 'kickback_timed_checkbox'):
+            self.kickback_timed_checkbox.setChecked(False)
+        
+        # Disable run and send to FPGA
+        self._disable_smr_run()
+        
+        # Disable peak detection
+        if hasattr(self.smr_widget, 'disable_peak_detection'):
+            self.smr_widget.disable_peak_detection()
             
-            # Stop kickback timer when final clean starts
-            self.kickback_timer.stop()
-            self.kickback_timed_enabled = False
-            if hasattr(self, 'kickback_timed_checkbox'):
-                self.kickback_timed_checkbox.setChecked(False)
+        # CRITICAL FIX: Switch cameras to Full Image (free-run) mode and disable image saving.
+        # To prevent event loop overload and GIL contention while post-hoc analysis is active,
+        # the free-run frame rate is throttled to 5.0 FPS inside pyImage.py when is_final_clean is True.
+        if hasattr(self, 'image_widget') and self.image_widget:
+            self.log_text.append("Configuring cameras to 5 FPS Full Image mode for Final Clean...")
+            if hasattr(self.image_widget, 'toggle_roi'):
+                self.image_widget.toggle_roi(False)
+            if hasattr(self.image_widget, 'roi_button'):
+                self.image_widget.roi_button.blockSignals(True)
+                self.image_widget.roi_button.setChecked(False)
+                self.image_widget.roi_button.blockSignals(False)
             
-            # Disable run and send to FPGA
-            self._disable_smr_run()
-            
-            # Disable peak detection
-            if hasattr(self.smr_widget, 'disable_peak_detection'):
-                self.smr_widget.disable_peak_detection()
-                
-            # CRITICAL FIX: Switch cameras to Full Image (free-run) mode and disable image saving.
-            # To prevent event loop overload and GIL contention while post-hoc analysis is active,
-            # the free-run frame rate is throttled to 5.0 FPS inside pyImage.py when is_final_clean is True.
-            if hasattr(self, 'image_widget') and self.image_widget:
-                self.log_text.append("Configuring cameras to 5 FPS Full Image mode for Final Clean...")
-                if hasattr(self.image_widget, 'toggle_roi'):
-                    self.image_widget.toggle_roi(False)
-                if hasattr(self.image_widget, 'roi_button'):
-                    self.image_widget.roi_button.blockSignals(True)
-                    self.image_widget.roi_button.setChecked(False)
-                    self.image_widget.roi_button.blockSignals(False)
-                
-                # Explicitly disable image saving to prevent dangling buffers
-                if hasattr(self.image_widget, 'toggle_image_saving'):
-                    self.image_widget.toggle_image_saving(False)
-            
-            # Initialize sequence: Prime Reagents -> Complete Clean -> Shutdown Media Backflush
-            self.final_clean_sequence = ['Prime Reagents', 'Complete Clean', 'Shutdown Media Backflush']
-            
-            # Calculate total steps for cumulative progress
-            self.total_final_clean_steps = self._get_total_steps_in_sequence(self.final_clean_sequence)
-            self.steps_completed_before_current_routine = 0
-            
-            self._run_next_final_clean_routine()
+            # Explicitly disable image saving to prevent dangling buffers
+            if hasattr(self.image_widget, 'toggle_image_saving'):
+                self.image_widget.toggle_image_saving(False)
+        
+        # Initialize sequence: Prime Reagents -> Complete Clean -> Shutdown Media Backflush
+        self.final_clean_sequence = ['Prime Reagents', 'Complete Clean', 'Shutdown Media Backflush']
+        
+        # Calculate total steps for cumulative progress
+        self.total_final_clean_steps = self._get_total_steps_in_sequence(self.final_clean_sequence)
+        self.steps_completed_before_current_routine = 0
+        
+        self._run_next_final_clean_routine()
+
+    def set_kickback_volume_programmatic(self, volume_ul: float) -> dict:
+        """Remote API: set kickback volume in µL."""
+        try:
+            volume_ul = float(volume_ul)
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "invalid_volume"}
+        if volume_ul <= 0:
+            return {"ok": False, "error": "invalid_volume"}
+        self.kickback_volume_ul = volume_ul
+        if hasattr(self, 'kickback_volume_input'):
+            self.kickback_volume_input.setText(str(volume_ul))
+        return {"ok": True, "volume_ul": volume_ul}
+
+    def run_kickback_programmatic(
+        self, volume_ul=None, rate_ul_min=None
+    ) -> dict:
+        """Remote API: run manual kickback on syringe 2."""
+        if not self._check_fluidic_debounce():
+            return {"ok": False, "error": "debounce"}
+        if self.kickback_in_progress:
+            return {"ok": False, "error": "kickback_in_progress"}
+        try:
+            vol = float(volume_ul) if volume_ul is not None else float(
+                self.kickback_volume_input.text() if hasattr(self, 'kickback_volume_input')
+                else self.kickback_volume_ul
+            )
+            rate = float(rate_ul_min) if rate_ul_min is not None else float(
+                self.kickback_rate_input.text() if hasattr(self, 'kickback_rate_input')
+                else self.kickback_rate_ul_min
+            )
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "invalid_volume_or_rate"}
+        self._execute_kickback(vol, rate)
+        return {"ok": True, "message": "kickback_started", "volume_ul": vol, "rate_ul_min": rate}
+
+    def pumps_connect_programmatic(self, port=None) -> dict:
+        """Remote API: open serial connection to syringe pumps."""
+        if self.comm_thread and self.comm_thread.isRunning():
+            return {
+                "ok": True,
+                "message": "already_connected",
+                "port": getattr(self.comm_thread, "port", None),
+            }
+        if port:
+            idx = self.com_port_combo.findText(str(port))
+            if idx >= 0:
+                self.com_port_combo.setCurrentIndex(idx)
+        else:
+            settings = get_syringe_pump_settings(load_system_config())
+            cfg_port = settings.get("com_port")
+            if cfg_port:
+                idx = self.com_port_combo.findText(cfg_port)
+                if idx >= 0:
+                    self.com_port_combo.setCurrentIndex(idx)
+        selected = self.com_port_combo.currentText()
+        if not selected:
+            return {"ok": False, "error": "no_com_port"}
+        self.toggle_connection()
+        return {"ok": True, "message": "connecting", "port": selected}
+
+    def pumps_disconnect_programmatic(self) -> dict:
+        """Remote API: close syringe pump serial connection."""
+        if self.comm_thread and self.comm_thread.isRunning():
+            self.toggle_connection()
+            return {"ok": True, "message": "disconnecting"}
+        return {"ok": True, "message": "already_disconnected"}
+
+    def pumps_initialize_programmatic(self) -> dict:
+        """Remote API: initialize all syringe pumps (requires connection)."""
+        if not (self.comm_thread and self.comm_thread.isRunning()):
+            return {"ok": False, "error": "not_connected"}
+        if self.kickback_in_progress:
+            return {"ok": False, "error": "kickback_in_progress"}
+        if self.current_fluidic_state == self.FLUIDIC_STATE_CLEANING:
+            return {"ok": False, "error": "fluidic_busy"}
+        if self.routine_thread and self.routine_thread.isRunning():
+            return {"ok": False, "error": "routine_running"}
+        self.initialize_all_pumps()
+        return {"ok": True, "message": "initializing"}
     
     def _stop_smr_saving(self):
         """Stop saving in pySMR if it is currently saving."""

@@ -268,6 +268,11 @@ def _udp_worker_process(
                             current_time = time.time()
                             if current_time - last_queue_full_warning_time > 1.0:
                                 print(f"Warning: UDP subscriber queue full, {queue_full_drop_count} packets dropped recently", file=sys.stderr, flush=True)
+                                try:
+                                    from helper_functions.paella_remote.health import get_health_store
+                                    get_health_store().record_udp_queue_drop(queue_full_drop_count)
+                                except ImportError:
+                                    pass
                                 last_queue_full_warning_time = current_time
                                 queue_full_drop_count = 0
                 

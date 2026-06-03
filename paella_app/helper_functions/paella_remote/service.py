@@ -94,6 +94,7 @@ class PaellaRemoteService:
             port=self._config.port,
             log_level="warning",
             access_log=False,
+            log_config=None,
         )
         self._server = uvicorn.Server(config)
 

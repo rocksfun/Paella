@@ -49,8 +49,8 @@ Open **http://127.0.0.1:9080/** → **Scan network**
 
 ## PyInstaller
 
-- **Instrument:** from `paella_app`, run `python helper_functions/package_paella.py` (uses `references/paella.spec`). Entry: `main_gui.py`.
-- **Dashboard:** from `paella_dashboard`, build with `paella_dashboard.spec`. Entry: `run_dashboard.py`. Bundle `static/` and `protocol/` as data files.
+- **Instrument (Windows):** `cd paella_app` → `build_windows.bat` → copy entire **`PaellaApp/`** folder to each lab PC. See **`BUILD_ON_WINDOWS.txt`**. Each PC needs `C:\Paella local\system_config.txt`.
+- **Dashboard (Windows):** from `paella_dashboard`, build with `paella_dashboard.spec`. Entry: `run_dashboard.py`. Bundle `static/` and `protocol/` as data files.
 
 See `paella_app/docs/PAELLA_REMOTE_ARCHITECTURE.md` for API and protocol details.
 

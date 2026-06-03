@@ -111,6 +111,17 @@ class ConsoleLogRedirector:
                 except:
                     pass
 
+    def isatty(self):
+        """Delegate to real stdout (uvicorn/logging and others expect this)."""
+        if self.terminal_stdout is not None and hasattr(self.terminal_stdout, "isatty"):
+            return self.terminal_stdout.isatty()
+        return False
+
+    def fileno(self):
+        if self.terminal_stdout is not None and hasattr(self.terminal_stdout, "fileno"):
+            return self.terminal_stdout.fileno()
+        raise OSError("ConsoleLogRedirector has no fileno")
+
 
 # Global redirector instance
 console_redirector = None

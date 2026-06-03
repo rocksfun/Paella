@@ -7,6 +7,12 @@ Thumbs.db
 
 # Local-only modification changelog — never commit
 LOCAL_MODIFICATIONS_LOG.txt
+code changes.txt
 
 # Local Python venv
 .venv/
+
+# PyInstaller build output
+PaellaApp/
+paella_app/build/
+paella_app/dist/

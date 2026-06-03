@@ -25,12 +25,25 @@ Started automatically with the GUI when `[remote_server] enabled = true` in:
 
 No API key — restrict access via network/firewall.
 
-## PyInstaller
+## PyInstaller — portable `PaellaApp` folder
 
-```bash
+**Must run on Windows** (builds a Windows `.exe`).
+
+```bat
 cd paella_app
-pip install pyinstaller
-python helper_functions/package_paella.py
+build_windows.bat
 ```
 
-Output: `dist/` executable. Requires `C:/Paella local/system_config.txt` on the target PC.
+Or manually:
+
+```bat
+conda activate paella
+pip install pyinstaller
+pip install -r requirements-remote.txt
+python helper_functions\package_paella.py
+```
+
+**Output:** `PaellaApp\` next to the repo (entire folder — copy to each lab PC).
+
+On each PC: create `C:\Paella local\system_config.txt`, then run `Paella.exe`.
+See `PaellaApp\START_HERE.txt` after building.

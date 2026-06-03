@@ -1,0 +1,41 @@
+Build PaellaApp on Windows (no conda required)
+=============================================
+
+OPTION A — Easiest if you have nothing installed yet
+----------------------------------------------------
+1. Install Miniconda (includes conda + Python):
+   https://docs.anaconda.com/miniconda/
+   During setup, check "Add Miniconda3 to PATH" OR use "Anaconda Prompt".
+
+2. Open a NEW Command Prompt:
+   cd C:\Users\TRAVERA_ADMIN\Desktop\paella_app
+   conda env create -f paella_env.yml
+   conda activate paella
+   build_windows.bat
+
+OPTION B — No conda (Python only)
+---------------------------------
+1. Install Python 3.12 from https://www.python.org/downloads/
+   IMPORTANT: check "Add python.exe to PATH" on the installer.
+
+2. Open a NEW Command Prompt:
+   cd C:\Users\TRAVERA_ADMIN\Desktop\paella_app
+   build_windows.bat
+
+   (This installs all packages via pip — first run can take 10–20 minutes.)
+
+OUTPUT
+------
+Folder:  Desktop\PaellaApp\   (next to paella_app folder)
+Run:     Paella.exe
+Each lab PC needs:  C:\Paella local\system_config.txt
+
+TROUBLESHOOT — "DLL load failed ... QtWidgets"
+--------------------------------------------
+1. Copy the ENTIRE PaellaApp folder (not only Paella.exe).
+2. Run Paella.exe from inside that folder.
+3. On the lab PC install: Microsoft Visual C++ Redistributable 2015-2022 (x64).
+4. Rebuild on the build PC after updating paella.spec (uses collect_all PySide6).
+   Delete old PaellaApp folder first, then: build_windows.bat
+5. First test run uses console=True so errors show in a black window; switch
+   back to console=False in paella.spec after it works.
